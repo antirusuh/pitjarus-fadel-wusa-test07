@@ -3,6 +3,7 @@ var _branch = require("./branch");
 var _category = require("./category");
 var _product = require("./product");
 var _report_display = require("./report_display");
+var _report_product = require("./report_product");
 var _store = require("./store");
 var _surveyor = require("./surveyor");
 
@@ -11,6 +12,7 @@ function initModels(sequelize) {
   var category = _category(sequelize, DataTypes);
   var product = _product(sequelize, DataTypes);
   var report_display = _report_display(sequelize, DataTypes);
+  var report_product = _report_product(sequelize, DataTypes)
   var store = _store(sequelize, DataTypes);
   var surveyor = _surveyor(sequelize, DataTypes);
 
@@ -24,12 +26,16 @@ function initModels(sequelize) {
   store.hasMany(report_display, { as: "report_displays", foreignKey: "store_id"});
   report_display.belongsTo(surveyor, { as: "surveyor", foreignKey: "surveyor_id"});
   surveyor.hasMany(report_display, { as: "report_displays", foreignKey: "surveyor_id"});
+  product.hasMany(report_product, {as: "report_product", foreignKey: "product_id"});
+  report_product.belongsTo(product, { as: "product", foreignKey: "product_id" });
+
 
   return {
     branch,
     category,
     product,
     report_display,
+    report_product,
     store,
     surveyor,
   };
