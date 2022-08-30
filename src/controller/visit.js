@@ -1,6 +1,8 @@
+const axios = require('axios')
+
 const catchAsync = require('../util/catchAsync');
 const db = require('../models')
-// const { Op } = require('sequelize')
+const { countArray } = require('../util/countArray')
 
 const getVisit = catchAsync(async (req, res) => {
     const {visit_id: visitId} = req.params
@@ -21,7 +23,7 @@ const getVisit = catchAsync(async (req, res) => {
 
 const getReportDisplay = catchAsync(async (req, res) => {
     /** logic here */
-    const { visitId } = req.query
+    const { visit_id: visitId } = req.query
     let categoryIds = new Set()
     let displays = []
 
@@ -127,6 +129,61 @@ const getReportDisplay = catchAsync(async (req, res) => {
 
 const getReportProduct = catchAsync(async (req, res) => {
     /** logic here */
+    const { visit_id: visitId } = req.query
+    let products = []
+    let listProduct = []
+    let setProduct = new Set()
+
+    const result1 = await db.report_display.findAll({
+        where: {
+            visit_id: visitId
+        },
+        attributes: ['json_path']
+    })
+
+    for (let i = 0; i < result1.length; i++) {
+        const el = result1[i]
+        const { data: result2 } = await axios.get(el.json_path)
+        const arrResult2 = result2.map(el => {
+            return el.object_name
+        })
+
+        arrResult2.forEach(el => {
+            setProduct.add(el)
+        })
+        listProduct = [...listProduct, ...arrResult2]
+    }
+
+
+    for (const productName of setProduct) {
+        const result3 = await db.product.findOne({
+            where: {
+                name: productName
+            },
+            attributes: ['id']
+        })
+
+        if (result3) {
+            const total = countArray(productName, listProduct)
+            products.push({
+                product_id: result3.id,
+                jumlah: total
+            })
+        }
+    }
+
+
+    if(result1.length > 0){
+        res.status(200).json({
+            visit_id: visitId,
+            products
+        })
+    }
+    else{
+        res.status(400).json({
+            message: "visit not found"
+        })
+    }
 
     /* contoh output */
     const expectedOutput = {
@@ -138,7 +195,7 @@ const getReportProduct = catchAsync(async (req, res) => {
             {product_id: 5, jumlah: 6},
         ]
     }
-    res.status(200).json(expectedOutput)
+    // res.status(200).json(expectedOutput)
 })
 
 const batchReportProduct = catchAsync(async (req, res) => {
