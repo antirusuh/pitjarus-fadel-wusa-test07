@@ -130,53 +130,53 @@ const getReportDisplay = catchAsync(async (req, res) => {
 const getReportProduct = catchAsync(async (req, res) => {
     /** logic here */
     const { visit_id: visitId } = req.query
+    let listOutput = []
     let products = []
-    let listProduct = []
     let setProduct = new Set()
 
-    const result1 = await db.report_display.findAll({
+    const reports = await db.report_display.findAll({
         where: {
             visit_id: visitId
         },
         attributes: ['json_path']
     })
 
-    for (let i = 0; i < result1.length; i++) {
-        const el = result1[i]
-        const { data: result2 } = await axios.get(el.json_path)
-        const arrResult2 = result2.map(el => {
+    for (let i = 0; i < reports.length; i++) {
+        const el = reports[i]
+        const { data: visitProducts } = await axios.get(el.json_path)
+        const productNames = visitProducts.map(el => {
             return el.object_name
         })
 
-        arrResult2.forEach(el => {
+        productNames.forEach(el => {
             setProduct.add(el)
         })
-        listProduct = [...listProduct, ...arrResult2]
+        products = [...products, ...productNames]
     }
 
 
     for (const productName of setProduct) {
-        const result3 = await db.product.findOne({
+        const product = await db.product.findOne({
             where: {
                 name: productName
             },
             attributes: ['id']
         })
 
-        if (result3) {
-            const total = countArray(productName, listProduct)
-            products.push({
-                product_id: result3.id,
+        if (product) {
+            const total = countArray(productName, products)
+            listOutput.push({
+                product_id: product.id,
                 jumlah: total
             })
         }
     }
 
 
-    if(result1.length > 0){
+    if(reports.length > 0){
         res.status(200).json({
             visit_id: visitId,
-            products
+            products: listOutput
         })
     }
     else{
