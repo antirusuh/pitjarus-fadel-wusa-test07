@@ -3,9 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "node ./bin/www",
+    "dev": "nodemon ./bin/www"
   },
   "dependencies": {
+    "axios": "^0.27.2",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
     "dotenv": "^16.0.1",
@@ -17,5 +19,8 @@
     "sequelize": "^6.21.3",
     "sequelize-auto": "^0.8.8",
     "yup": "^0.32.11"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.19"
   }
 }
