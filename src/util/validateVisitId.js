@@ -8,17 +8,44 @@ let reportDisplay = yup.object().shape({
     json_path: yup.string().url()
 })
 
-const validate = (data) => {
+let visitId = yup
+    .string()
+    .max(50, 'Maximum length of visit_id are 50')
+    .test({
+        name: 'initalV',
+        exclusive: false,
+        message: 'visit_id Must start with "V"',
+        test: (value) => value.slice(0, 1) === "V"
+    })
+    .test({
+        name: 'have3Dots',
+        exclusive: false,
+        message: 'visit_id Must have three dots',
+        test: (value) => {
+            let a = value.match(/\./g)
+            if (a) {
+                return a.length === 3
+            } else {
+                return false
+            }
+        }
+    })
+
+const validateVisitId = (data) => {
+    return visitId.validate(data)
+}
+
+const validateReportDisplay = (data) => {
     return reportDisplay.validate(data)
 }
 
-const validateAsArray = async (listData) => {
+const validateReportDisplayAsArray = async (listData) => {
     return new Promise((async (resolve, reject) => {
         let castedData = []
         for (let i = 0; i < listData.length; i++) {
             const data = listData[i]
             try {
-                const result = await validate(data)
+                const result = await validateReportDisplay(data)
                 castedData.push(result)
             } catch (err) {
                 reject({
@@ -41,6 +68,5 @@ const validateAsArray = async (listData) => {
 }
 
 module.exports = {
-    validateAsArray,
-    validate
+    validateVisitId
 }
