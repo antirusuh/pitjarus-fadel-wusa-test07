@@ -3,6 +3,7 @@ const axios = require('axios')
 const catchAsync = require('../util/catchAsync');
 const db = require('../models')
 const { countArray } = require('../util/countArray')
+const { validateAsArray, validate } = require('../util/validateReportDisplay')
 
 const getVisit = catchAsync(async (req, res) => {
     const {visit_id: visitId} = req.params
@@ -11,12 +12,14 @@ const getVisit = catchAsync(async (req, res) => {
             visit_id: visitId
         }
     })
-    if(v.length > 0){
-        res.status(200).json(v)
-    }
-    else{
-        res.status(400).json({
-            message: "visit not found"
+
+    try {
+        const reports = await validateAsArray(v)
+
+        res.status(200).json(reports)
+    } catch (err) {
+        res.status(err.status).json({
+            message: err.message
         })
     }
 })
@@ -33,6 +36,12 @@ const getReportDisplay = catchAsync(async (req, res) => {
         },
         attributes: ['visit_id', 'store_id', 'surveyor_id'],
     })
+
+    try {
+
+    } catch (err) {
+
+    }
 
     const reportByCategory = await db.report_display.findAll({
         where: {
