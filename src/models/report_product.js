@@ -18,6 +18,10 @@ module.exports = function(sequelize, DataTypes) {
                 model: 'product',
                 key: 'id'
             }
+        },
+        jumlah_product: {
+            type: DataTypes.INTEGER.UNSIGNED,
+            allowNull: false
         }
     }, {
         sequelize,

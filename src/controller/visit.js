@@ -124,7 +124,6 @@ const getReportDisplay = catchAsync(async (req, res) => {
             }
         ]
     }
-    // res.status(200).json(expectedOutput)
 })
 
 const getReportProduct = catchAsync(async (req, res) => {
@@ -140,6 +139,12 @@ const getReportProduct = catchAsync(async (req, res) => {
         },
         attributes: ['json_path']
     })
+
+    if (reports.length === 0) {
+        res.status(400).json({
+            message: "Visit id not found"
+        })
+    }
 
     for (let i = 0; i < reports.length; i++) {
         const el = reports[i]
@@ -195,11 +200,42 @@ const getReportProduct = catchAsync(async (req, res) => {
             {product_id: 5, jumlah: 6},
         ]
     }
-    // res.status(200).json(expectedOutput)
 })
 
 const batchReportProduct = catchAsync(async (req, res) => {
     /** logic here */
+    let { visit_id } = req.query
+    let { PORT } = process.env
+
+    const exists = await db.report_product.findOne({
+        where: {
+            visit_id
+        }
+    })
+
+    if (exists === null) {
+        try {
+            let { data:result1 } = await axios.post(`http://localhost:${ PORT }/product-visit?visit_id=${ visit_id }`)
+            console.log(result1.visit_id, "<+++++++++")
+            let { visit_id:visitId, products } = result1
+            const result2 = products.map(el => {
+                return {
+                    visit_id: visitId,
+                    product_id: el.product_id,
+                    jumlah_product: el.jumlah
+                }
+            })
+
+            await db.report_product.bulkCreate(result2, {returning: false})
+        } catch (err) {
+            const status = err?.response?.status || 500
+            const message = err?.response?.data?.message || "Internal server error"
+            res.status(status).json({
+                message
+            })
+        }
+    }
+
     res.status(200).json({
         status: "OK",
         message: "batch success"
