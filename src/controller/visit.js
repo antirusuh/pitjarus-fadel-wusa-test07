@@ -3,87 +3,105 @@ const axios = require('axios')
 const catchAsync = require('../util/catchAsync');
 const db = require('../models')
 const { countArray } = require('../util/countArray')
+const { validateVisitId } = require('../util/validateVisitId')
 
 const getVisit = catchAsync(async (req, res) => {
-    const {visit_id: visitId} = req.params
-    const v = await db.report_display.findAll({
-        where: {
-            visit_id: visitId
+    const { visit_id } = req.params
+
+    try {
+        let visitId = await validateVisitId(visit_id)
+
+        const v = await db.report_display.findAll({
+            where: {
+                visit_id: visitId
+            }
+        })
+
+        if (v.length > 0) {
+            res.status(200).json(v)
+        } else {
+            res.status(400).json({
+                message: 'visit_id not found'
+            })
         }
-    })
-    if(v.length > 0){
-        res.status(200).json(v)
-    }
-    else{
+    } catch (err) {
         res.status(400).json({
-            message: "visit not found"
+            message: err.errors[0]
         })
     }
 })
 
 const getReportDisplay = catchAsync(async (req, res) => {
     /** logic here */
-    const { visit_id: visitId } = req.query
+    const { visit_id } = req.query
     let categoryIds = new Set()
     let displays = []
 
-    const generalReport = await db.report_display.findOne({
-        where: {
-            visit_id: visitId
-        },
-        attributes: ['visit_id', 'store_id', 'surveyor_id'],
-    })
+    try {
+        const visitId = await validateVisitId(visit_id)
 
-    const reportByCategory = await db.report_display.findAll({
-        where: {
-            visit_id: visitId
-        },
-        attributes: ['category_id']
-    })
-
-    reportByCategory.forEach(el => {
-        categoryIds.add(el.category_id)
-    })
-
-    for (const categoryId of categoryIds) {
-        let result = {}
-        const category = await db.category.findByPk(categoryId, {
-            attributes: ['id', 'name']
-        })
-
-        const pathByCategory = await db.report_display.findAll({
+        const generalReport = await db.report_display.findOne({
             where: {
-                visit_id: visitId,
-                category_id: category.id
+                visit_id: visitId
             },
-            attributes: [['json_path', 'path']],
-            raw: true
+            attributes: ['visit_id', 'store_id', 'surveyor_id'],
         })
 
-        result = {
-            category_id: category.id,
-            category_name: category.name,
-            json_paths: pathByCategory
+        if (!generalReport) {
+            res.status(404).json({
+                message: 'visit_id not found'
+            })
         }
 
-        displays.push(result)
-    }
+        const reportByCategory = await db.report_display.findAll({
+            where: {
+                visit_id: visitId
+            },
+            attributes: ['category_id']
+        })
 
-    const surveyor = await db.surveyor.findOne({
-        where: {
-            id: generalReport.surveyor_id
-        },
-        attributes: ['username']
-    })
+        reportByCategory.forEach(el => {
+            categoryIds.add(el.category_id)
+        })
 
-    const store = await db.store.findOne({
-        where: {
-            id: generalReport.store_id
-        },
-        attributes: ['name']
-    })
+        for (const categoryId of categoryIds) {
+            let result = {}
+            const category = await db.category.findByPk(categoryId, {
+                attributes: ['id', 'name']
+            })
 
-    if (generalReport) {
+            const pathByCategory = await db.report_display.findAll({
+                where: {
+                    visit_id: visitId,
+                    category_id: category.id
+                },
+                attributes: [['json_path', 'path']],
+                raw: true
+            })
+
+            result = {
+                category_id: category.id,
+                category_name: category.name,
+                json_paths: pathByCategory
+            }
+
+            displays.push(result)
+        }
+
+        const surveyor = await db.surveyor.findOne({
+            where: {
+                id: generalReport.surveyor_id
+            },
+            attributes: ['username']
+        })
+
+        const store = await db.store.findOne({
+            where: {
+                id: generalReport.store_id
+            },
+            attributes: ['name']
+        })
+
         res.status(200).json({
             visit_id: generalReport.visit_id,
             store_id: generalReport.store_id,
@@ -92,9 +110,9 @@ const getReportDisplay = catchAsync(async (req, res) => {
             surveyor_name: surveyor.username,
             displays
         })
-    } else  {
-        res.status(404).json({
-            message: 'visit not found'
+    } catch (err) {
+        res.status(400).json({
+            message: err.errors[0]
         })
     }
 
@@ -128,65 +146,82 @@ const getReportDisplay = catchAsync(async (req, res) => {
 
 const getReportProduct = catchAsync(async (req, res) => {
     /** logic here */
-    const { visit_id: visitId } = req.query
+    const { visit_id } = req.query
     let listOutput = []
     let products = []
     let setProduct = new Set()
 
-    const reports = await db.report_display.findAll({
-        where: {
-            visit_id: visitId
-        },
-        attributes: ['json_path']
-    })
+    try {
+        const visitId = await validateVisitId(visit_id)
 
-    if (reports.length === 0) {
-        res.status(400).json({
-            message: "Visit id not found"
-        })
-    }
-
-    for (let i = 0; i < reports.length; i++) {
-        const el = reports[i]
-        const { data: visitProducts } = await axios.get(el.json_path)
-        const productNames = visitProducts.map(el => {
-            return el.object_name
-        })
-
-        productNames.forEach(el => {
-            setProduct.add(el)
-        })
-        products = [...products, ...productNames]
-    }
-
-
-    for (const productName of setProduct) {
-        const product = await db.product.findOne({
+        const reports = await db.report_display.findAll({
             where: {
-                name: productName
+                visit_id: visitId
             },
-            attributes: ['id']
+            attributes: ['json_path']
         })
 
-        if (product) {
-            const total = countArray(productName, products)
-            listOutput.push({
-                product_id: product.id,
-                jumlah: total
+        if (reports.length === 0) {
+            res.status(400).json({
+                message: "Visit id not found"
             })
         }
-    }
+
+        for (let i = 0; i < reports.length; i++) {
+            const el = reports[i]
+            try {
+                const { data: visitProducts } = await axios.get(el.json_path)
+                const productNames = visitProducts.map(el => {
+                    return el.object_name
+                })
+
+                productNames.forEach(el => {
+                    setProduct.add(el)
+                })
+                products = [...products, ...productNames]
+            } catch (err) {
+                const status = err?.response?.status || 500
+                const message = err?.response?.data?.message || "Internal server error"
+
+                res.status(status).json({
+                    message
+                })
+            }
+        }
 
 
-    if(reports.length > 0){
-        res.status(200).json({
-            visit_id: visitId,
-            products: listOutput
-        })
-    }
-    else{
+        for (const productName of setProduct) {
+            const product = await db.product.findOne({
+                where: {
+                    name: productName
+                },
+                attributes: ['id']
+            })
+
+            if (product) {
+                const total = countArray(productName, products)
+                listOutput.push({
+                    product_id: product.id,
+                    jumlah: total
+                })
+            }
+        }
+
+
+        if(reports.length > 0){
+            res.status(200).json({
+                visit_id: visitId,
+                products: listOutput
+            })
+        }
+        else{
+            res.status(400).json({
+                message: "visit not found"
+            })
+        }
+    } catch (err) {
         res.status(400).json({
-            message: "visit not found"
+            message: err.errors[0]
         })
     }
 
@@ -207,39 +242,46 @@ const batchReportProduct = catchAsync(async (req, res) => {
     let { visit_id } = req.query
     let { PORT } = process.env
 
-    const exists = await db.report_product.findOne({
-        where: {
-            visit_id
-        }
-    })
+    try {
+        const vId = await validateVisitId(visit_id)
+        const exists = await db.report_product.findOne({
+            where: {
+                visit_id: vId
+            }
+        })
 
-    if (exists === null) {
-        try {
-            let { data:result1 } = await axios.post(`http://localhost:${ PORT }/product-visit?visit_id=${ visit_id }`)
-            console.log(result1.visit_id, "<+++++++++")
-            let { visit_id:visitId, products } = result1
-            const result2 = products.map(el => {
-                return {
-                    visit_id: visitId,
-                    product_id: el.product_id,
-                    jumlah_product: el.jumlah
-                }
-            })
+        if (!exists) {
+            try {
+                let { data } = await axios.post(`http://localhost:${ PORT }/product-visit?visit_id=${ vId }`)
+                console.log(data.visit_id, "<+++++++++")
+                let { visit_id:visitId, products } = data
+                const reportProducts = products.map(el => {
+                    return {
+                        visit_id: visitId,
+                        product_id: el.product_id,
+                        jumlah_product: el.jumlah
+                    }
+                })
 
-            await db.report_product.bulkCreate(result2, {returning: false})
-        } catch (err) {
-            const status = err?.response?.status || 500
-            const message = err?.response?.data?.message || "Internal server error"
-            res.status(status).json({
-                message
-            })
+                await db.report_product.bulkCreate(reportProducts)
+            } catch (err) {
+                const status = err?.response?.status || 500
+                const message = err?.response?.data?.message || "Internal server error"
+                res.status(status).json({
+                    message
+                })
+            }
         }
+
+        res.status(200).json({
+            status: "OK",
+            message: "batch success"
+        })
+    } catch (err) {
+        res.status(400).json({
+            message: err.errors[0]
+        })
     }
-
-    res.status(200).json({
-        status: "OK",
-        message: "batch success"
-    })
 })
 
 
